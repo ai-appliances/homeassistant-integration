@@ -1,0 +1,17 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "AI Appliances",
+        "description": "Connect this Home Assistant to your AI Appliances speaker.",
+        "data": {
+          "backend_url": "Voice backend channel URL",
+          "dev_token": "Developer token"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This voice backend is already configured."
+    }
+  }
+}
