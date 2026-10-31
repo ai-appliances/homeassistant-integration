@@ -5,7 +5,8 @@ port needed). On connect and on every change the component sends the full
 registry of exposed appliances; the backend sends
 `{"commands": [{"id", "type": "call_service", "domain", "service",
 "entity_id", "data"}]}` and gets `{"type": "results", "results": [{"id",
-"ok", "error"}]}` back with the same ids.
+"ok", "error"}]}` back with the same ids. A `get_state` command (exposed
+sensors only) answers with the entity's current `state` and `unit`.
 
 The backend resolves what the user meant; this side only executes, and only
 for entities that are still exposed to voice assistants and not in a security
@@ -24,7 +25,8 @@ from homeassistant.components.homeassistant.exposed_entities import (
     async_listen_entity_updates,
     async_should_expose,
 )
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.components.light import ATTR_SUPPORTED_COLOR_MODES, ColorMode
+from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import (
     area_registry as ar,
@@ -46,6 +48,8 @@ ASSISTANT = "conversation"
 HEARTBEAT_SECONDS = 30
 SERVICE_TIMEOUT_SECONDS = 4
 RECONNECT_MAX_SECONDS = 60
+# Light colour modes that take an rgb_color.
+COLOR_MODES = {ColorMode.HS, ColorMode.XY, ColorMode.RGB, ColorMode.RGBW, ColorMode.RGBWW}
 REGISTRY_DEBOUNCE_SECONDS = 1.0
 # Close codes of the voice backend: the token is no longer valid (expired
 # after its hour, or revoked) / the account unlinked this hub.
@@ -137,6 +141,8 @@ class ChannelClient:
         entity_id = str(command.get("entity_id") or "")
         domain = str(command.get("domain") or "")
         service = str(command.get("service") or "")
+        if command.get("type") == "get_state":
+            return self._read(command, result)
         if command.get("type") != "call_service":
             result["error"] = "unknown_command"
         elif entity_id.split(".")[0] != domain or domain not in CONTROL_DOMAINS:
@@ -153,8 +159,7 @@ class ChannelClient:
             # "succeeds" — the speaker must not confirm what did not happen.
             result["error"] = "unavailable"
         else:
-            data = dict(command.get("data") or {})
-            data = {"brightness_pct": data["brightness_pct"]} if "brightness_pct" in data and domain == "light" else {}
+            data = _light_data(command.get("data")) if domain == "light" else {}
             try:
                 async with asyncio.timeout(SERVICE_TIMEOUT_SECONDS):
                     await self.hass.services.async_call(
@@ -166,6 +171,22 @@ class ChannelClient:
             except Exception as err:  # noqa: BLE001 — any service failure is reported back
                 _LOGGER.warning("Command %s.%s on %s failed: %s", domain, service, entity_id, err)
                 result["error"] = "service_failed"
+        return result
+
+    def _read(self, command: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+        """A sensor's current value — only what the user exposed."""
+        entity_id = str(command.get("entity_id") or "")
+        if entity_id.split(".")[0] not in READ_DOMAINS:
+            result["error"] = "domain_not_allowed"
+        elif not async_should_expose(self.hass, ASSISTANT, entity_id):
+            result["error"] = "not_exposed"
+        elif (state := self.hass.states.get(entity_id)) is None or state.state in (
+            STATE_UNAVAILABLE,
+            STATE_UNKNOWN,
+        ):
+            result["error"] = "unavailable"
+        else:
+            result.update(ok=True, state=state.state, unit=state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) or "")
         return result
 
     @callback
@@ -191,7 +212,7 @@ class ChannelClient:
                 area_id = device.area_id if device else None
             area = areas.async_get_area(area_id) if area_id else None
             floor = floors.async_get_floor(area.floor_id) if area and area.floor_id else None
-            appliances.append({
+            item = {
                 "entity_id": state.entity_id,
                 "name": state.name,
                 # Aliases may hold a marker for "the entity's own name", not a string.
@@ -199,7 +220,14 @@ class ChannelClient:
                 "area": area.name if area else "",
                 "floor": floor.name if floor else "",
                 "state": state.state,
-            })
+            }
+            if domain == "light":
+                modes = state.attributes.get(ATTR_SUPPORTED_COLOR_MODES) or []
+                item["color"] = any(mode in COLOR_MODES for mode in modes)
+            elif domain in READ_DOMAINS:
+                item["device_class"] = state.attributes.get(ATTR_DEVICE_CLASS) or ""
+                item["unit"] = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) or ""
+            appliances.append(item)
         return appliances
 
     async def _send_registry(self) -> None:
@@ -238,3 +266,17 @@ class ChannelClient:
         if self._resend is not None:
             self._resend.cancel()
             self._resend = None
+
+
+def _light_data(raw: Any) -> dict[str, Any]:
+    """The light.turn_on fields the backend may set: a brightness percent
+    and an rgb colour, checked — anything else is dropped."""
+    raw = raw if isinstance(raw, dict) else {}
+    data: dict[str, Any] = {}
+    pct = raw.get("brightness_pct")
+    if isinstance(pct, int) and 0 <= pct <= 100:
+        data["brightness_pct"] = pct
+    rgb = raw.get("rgb_color")
+    if isinstance(rgb, list) and len(rgb) == 3 and all(isinstance(c, int) and 0 <= c <= 255 for c in rgb):
+        data["rgb_color"] = rgb
+    return data
