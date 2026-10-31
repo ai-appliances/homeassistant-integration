@@ -6,7 +6,9 @@ registry of exposed appliances; the backend sends
 `{"commands": [{"id", "type": "call_service", "domain", "service",
 "entity_id", "data"}]}` and gets `{"type": "results", "results": [{"id",
 "ok", "error"}]}` back with the same ids. A `get_state` command (exposed
-sensors only) answers with the entity's current `state` and `unit`.
+sensors only) answers with the entity's current `state` and `unit`. A
+call_service with `only_if_on` runs only on an entity that is on right
+now; otherwise it answers `{"ok": true, "skipped": true}`.
 
 The backend resolves what the user meant; this side only executes, and only
 for entities that are still exposed to voice assistants and not in a security
@@ -26,7 +28,13 @@ from homeassistant.components.homeassistant.exposed_entities import (
     async_should_expose,
 )
 from homeassistant.components.light import ATTR_SUPPORTED_COLOR_MODES, ColorMode
-from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import (
+    ATTR_DEVICE_CLASS,
+    ATTR_UNIT_OF_MEASUREMENT,
+    STATE_ON,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import (
     area_registry as ar,
@@ -151,6 +159,13 @@ class ChannelClient:
             result["error"] = "service_not_allowed"
         elif not async_should_expose(self.hass, ASSISTANT, entity_id):
             result["error"] = "not_exposed"
+        elif command.get("only_if_on") and (
+            (state := self.hass.states.get(entity_id)) is None or state.state != STATE_ON
+        ):
+            # «Оранжевый на кухне» recolours the lights that are on; one
+            # that is off (or offline) stays as it is. Checked here, at
+            # execution time: the registry's states can be stale.
+            result.update(ok=True, skipped=True)
         elif (state := self.hass.states.get(entity_id)) is None or state.state in (
             STATE_UNAVAILABLE,
             STATE_UNKNOWN,
