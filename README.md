@@ -11,14 +11,16 @@ backend resolves which entity you meant and this component executes the action
 locally in your Home Assistant. Home Assistant's own **"expose to Assist"**
 setting decides which entities the speaker can see and control.
 
-> **Status: Phase 1 (developer preview).** The channel to the voice backend
-> works: exposed lights, switches and fans can be turned on/off (and lights
-> dimmed) by voice. Linking still uses a developer token — the OAuth account
-> link comes in Phase 2. Not ready for general use.
+> **Status: Phase 2 (developer preview).** Exposed lights, switches and fans
+> can be turned on/off (and lights dimmed) by voice. Home Assistant is linked
+> to your AI Appliances account over OAuth — no tokens to copy. Not ready for
+> general use yet.
 
 ## Requirements
 
-- Home Assistant 2024.12 or newer.
+- Home Assistant 2026.10 or newer (tested on 2026.10.4).
+- The **My Home Assistant** integration (part of `default_config`): the
+  account link returns through `my.home-assistant.io`.
 - An AI Appliances speaker (see the [`ai-appliances`](https://github.com/ai-appliances)
   project).
 
@@ -28,8 +30,13 @@ setting decides which entities the speaker can see and control.
 2. Add `https://github.com/ai-appliances/homeassistant-integration` as an
    **Integration**.
 3. Install **AI Appliances**, then restart Home Assistant.
-4. **Settings → Devices & Services → Add Integration → AI Appliances**, and enter
-   the voice-backend channel URL and your developer token.
+4. **Settings → Devices & Services → Add Integration → AI Appliances**. You are
+   sent to the AI Appliances page: sign in and press **Allow**. You can unlink
+   Home Assistant any time in the AI Appliances app under **Settings → Smart home**.
+
+A self-hosted voice backend: **Configure** on the integration sets its channel
+URL. Entries set up with a Phase 1 developer token keep working and ask to be
+re-linked to the account (a repair notification in Home Assistant).
 
 Manual install also works: copy `custom_components/ai_appliances/` into your
 Home Assistant `config/custom_components/` and restart.

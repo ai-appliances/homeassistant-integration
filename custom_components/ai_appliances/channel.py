@@ -33,9 +33,11 @@ from homeassistant.helpers import (
     floor_registry as fr,
 )
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.config_entry_oauth2_flow import OAuth2TokenRequestError
 from homeassistant.helpers.start import async_at_started
 
 from .const import CONTROL_DOMAINS, READ_DOMAINS, SECURITY_DOMAINS
+from .oauth import ChannelAuthRevoked, OAuthChannelAuth, StaticChannelAuth
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,15 +47,19 @@ HEARTBEAT_SECONDS = 30
 SERVICE_TIMEOUT_SECONDS = 4
 RECONNECT_MAX_SECONDS = 60
 REGISTRY_DEBOUNCE_SECONDS = 1.0
+# Close codes of the voice backend: the token is no longer valid (expired
+# after its hour, or revoked) / the account unlinked this hub.
+CLOSE_TOKEN_INVALID = 4401
+CLOSE_UNLINKED = 4403
 
 
 class ChannelClient:
     """Keeps the channel up and serves the backend's commands."""
 
-    def __init__(self, hass: HomeAssistant, url: str, token: str) -> None:
+    def __init__(self, hass: HomeAssistant, url: str, auth: OAuthChannelAuth | StaticChannelAuth) -> None:
         self.hass = hass
         self.url = url
-        self.token = token
+        self.auth = auth
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._unsubs: list = []
         self._resend: asyncio.TimerHandle | None = None
@@ -72,9 +78,10 @@ class ChannelClient:
         try:
             while True:
                 try:
+                    token = await self.auth.access_token()
                     async with session.ws_connect(
                         self.url,
-                        headers={"Authorization": f"Bearer {self.token}"},
+                        headers={"Authorization": f"Bearer {token}"},
                         heartbeat=HEARTBEAT_SECONDS,
                     ) as ws:
                         self._ws = ws
@@ -82,9 +89,21 @@ class ChannelClient:
                         _LOGGER.info("Connected to the voice backend at %s", self.url)
                         await self._send_registry()
                         await self._serve(ws)
+                        if ws.close_code in (CLOSE_TOKEN_INVALID, CLOSE_UNLINKED):
+                            # Expired or revoked: reconnect at once with a
+                            # refreshed token (a revoked link fails the refresh).
+                            await self.auth.invalidate()
+                            continue
+                except ChannelAuthRevoked:
+                    _LOGGER.warning("The AI Appliances account link was revoked; re-link the integration")
+                    return
                 except aiohttp.WSServerHandshakeError as err:
-                    _LOGGER.warning("Voice backend refused the channel (HTTP %s); check the token", err.status)
-                except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as err:
+                    # A refusal before the socket opens carries no close code
+                    # (the backend can't tell us "expired" from "down" here):
+                    # refresh the token for the next attempt, with backoff.
+                    _LOGGER.warning("Voice backend refused the channel (HTTP %s)", err.status)
+                    await self.auth.invalidate()
+                except (aiohttp.ClientError, asyncio.TimeoutError, OSError, OAuth2TokenRequestError) as err:
                     _LOGGER.debug("Channel connection failed: %s", err)
                 except Exception:  # noqa: BLE001 — a bug here must not end the channel for good
                     _LOGGER.exception("Channel failed; reconnecting")

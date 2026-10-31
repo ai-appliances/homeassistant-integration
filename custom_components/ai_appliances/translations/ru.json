@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "pick_implementation": {
+        "title": "Выберите способ входа"
+      },
+      "reauth_confirm": {
+        "title": "Привяжите аккаунт AI Appliances",
+        "description": "Home Assistant нужно (заново) привязать к вашему аккаунту AI Appliances. Откроется страница AI Appliances, где нужно разрешить доступ."
+      }
+    },
+    "abort": {
+      "already_configured": "AI Appliances уже настроен.",
+      "single_instance_allowed": "AI Appliances уже настроен.",
+      "reauth_successful": "Аккаунт привязан."
+    },
+    "create_entry": {
+      "default": "Готово. Какими приборами может управлять колонка, задаётся в Настройки → Голосовые ассистенты → Доступ."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Голосовой сервер",
+        "description": "Меняйте, только если у вас свой голосовой сервер AI Appliances.",
+        "data": {
+          "backend_url": "Адрес канала голосового сервера"
+        }
+      }
+    }
+  }
+}

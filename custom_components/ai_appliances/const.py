@@ -4,12 +4,19 @@ DOMAIN = "ai_appliances"
 
 # Config entry keys.
 CONF_BACKEND_URL = "backend_url"
+# Phase 1 entries linked by a developer token; kept working until the user
+# re-links the account over OAuth (the integration asks for it).
 CONF_DEV_TOKEN = "dev_token"
 
-# Phase-0 scaffolding default. The OAuth2 flow (Phase 2, see ADR-0006) replaces
-# the dev token with a real hub link; until then this lets the thin vertical
-# slice ("voice -> HA -> lamp") be exercised without account linking.
-DEFAULT_BACKEND_URL = "wss://voice.example.com/ha-channel"
+# The hub link (ADR-0006 Phase 2): authorization code + PKCE against the
+# AI Appliances account. A public client — there is no secret to ship.
+OAUTH_CLIENT_ID = "ai-appliances-home-assistant"
+OAUTH_AUTHORIZE_URL = "https://app.ai-appliance.store/oauth/authorize"
+OAUTH_TOKEN_URL = "https://app.ai-appliance.store/api/oauth/token"
+
+# The production voice-backend channel; the options let a self-hosted
+# backend replace it.
+DEFAULT_BACKEND_URL = "wss://gpu-box.tail8ab92a.ts.net/voice/ha-channel"
 
 # v1 scope (ADR-0006): what the speaker may switch, and what it may only read.
 CONTROL_DOMAINS = {"light", "switch", "fan"}

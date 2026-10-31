@@ -1,13 +1,18 @@
 {
   "domain": "ai_appliances",
   "name": "AI Appliances",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "documentation": "https://github.com/ai-appliances/homeassistant-integration",
   "issue_tracker": "https://github.com/ai-appliances/homeassistant-integration/issues",
-  "codeowners": ["@maxvanceffer"],
+  "codeowners": [
+    "@maxvanceffer"
+  ],
   "config_flow": true,
   "integration_type": "hub",
   "iot_class": "cloud_push",
-  "dependencies": [],
-  "requirements": []
+  "dependencies": [
+    "auth"
+  ],
+  "requirements": [],
+  "single_config_entry": true
 }
