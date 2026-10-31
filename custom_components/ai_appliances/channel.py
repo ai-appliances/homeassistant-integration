@@ -224,6 +224,7 @@ class ChannelClient:
             if domain == "light":
                 modes = state.attributes.get(ATTR_SUPPORTED_COLOR_MODES) or []
                 item["color"] = any(mode in COLOR_MODES for mode in modes)
+                item["color_temp"] = ColorMode.COLOR_TEMP in modes
             elif domain in READ_DOMAINS:
                 item["device_class"] = state.attributes.get(ATTR_DEVICE_CLASS) or ""
                 item["unit"] = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) or ""
@@ -269,8 +270,8 @@ class ChannelClient:
 
 
 def _light_data(raw: Any) -> dict[str, Any]:
-    """The light.turn_on fields the backend may set: a brightness percent
-    and an rgb colour, checked — anything else is dropped."""
+    """The light.turn_on fields the backend may set: a brightness percent,
+    an rgb colour and a colour temperature, checked — anything else is dropped."""
     raw = raw if isinstance(raw, dict) else {}
     data: dict[str, Any] = {}
     pct = raw.get("brightness_pct")
@@ -279,4 +280,7 @@ def _light_data(raw: Any) -> dict[str, Any]:
     rgb = raw.get("rgb_color")
     if isinstance(rgb, list) and len(rgb) == 3 and all(isinstance(c, int) and 0 <= c <= 255 for c in rgb):
         data["rgb_color"] = rgb
+    kelvin = raw.get("color_temp_kelvin")
+    if isinstance(kelvin, int) and 1500 <= kelvin <= 10000:
+        data["color_temp_kelvin"] = kelvin
     return data
