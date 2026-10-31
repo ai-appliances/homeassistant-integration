@@ -11,10 +11,10 @@ backend resolves which entity you meant and this component executes the action
 locally in your Home Assistant. Home Assistant's own **"expose to Assist"**
 setting decides which entities the speaker can see and control.
 
-> **Status: early scaffold (Phase 0).** This release only registers a config
-> entry — it does **not** control anything yet. The outbound channel to the
-> voice backend and the command execution land in the next phase. Not ready for
-> daily use.
+> **Status: Phase 1 (developer preview).** The channel to the voice backend
+> works: exposed lights, switches and fans can be turned on/off (and lights
+> dimmed) by voice. Linking still uses a developer token — the OAuth account
+> link comes in Phase 2. Not ready for general use.
 
 ## Requirements
 
