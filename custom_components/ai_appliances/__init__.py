@@ -35,8 +35,8 @@ PLATFORMS: list[str] = []
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up AI Appliances from a config entry: start the channel."""
-    url = entry.options.get(CONF_BACKEND_URL) or entry.data.get(CONF_BACKEND_URL) or DEFAULT_BACKEND_URL
     if "token" in entry.data:
+        url = entry.options.get(CONF_BACKEND_URL) or DEFAULT_BACKEND_URL
         async_register_implementation(hass)
         implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(hass, entry)
         session = config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation)
@@ -51,6 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # A Phase 1 entry linked by a developer token: keep it working, and
         # ask the user to link the account properly (reauth runs the OAuth flow).
         entry.async_start_reauth(hass)
+        url = entry.data[CONF_BACKEND_URL]
         auth = StaticChannelAuth(entry.data[CONF_DEV_TOKEN])
     client = ChannelClient(hass, url, auth)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = client

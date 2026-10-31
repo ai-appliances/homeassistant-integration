@@ -51,12 +51,11 @@ class AiAppliancesConfigFlow(AbstractOAuth2FlowHandler, domain=DOMAIN):
 
     async def async_oauth_create_entry(self, data: dict[str, Any]) -> ConfigFlowResult:
         if self.source == SOURCE_REAUTH:
-            entry = self._get_reauth_entry()
-            # Replaces the data wholesale: a developer token does not survive
-            # the move to the account link.
-            url = entry.data.get(CONF_BACKEND_URL) or DEFAULT_BACKEND_URL
-            return self.async_update_reload_and_abort(entry, data={**data, CONF_BACKEND_URL: url})
-        return self.async_create_entry(title="AI Appliances", data={**data, CONF_BACKEND_URL: DEFAULT_BACKEND_URL})
+            # Replaces the data wholesale: neither a developer token nor a
+            # Phase 1 channel url survives the move to the account link (a
+            # self-hosted backend is set in the options).
+            return self.async_update_reload_and_abort(self._get_reauth_entry(), data=data)
+        return self.async_create_entry(title="AI Appliances", data=data)
 
     @staticmethod
     @callback
@@ -70,10 +69,6 @@ class AiAppliancesOptionsFlow(OptionsFlowWithReload):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             return self.async_create_entry(data=user_input)
-        current = (
-            self.config_entry.options.get(CONF_BACKEND_URL)
-            or self.config_entry.data.get(CONF_BACKEND_URL)
-            or DEFAULT_BACKEND_URL
-        )
+        current = self.config_entry.options.get(CONF_BACKEND_URL) or DEFAULT_BACKEND_URL
         schema = vol.Schema({vol.Required(CONF_BACKEND_URL, default=current): str})
         return self.async_show_form(step_id="init", data_schema=schema)

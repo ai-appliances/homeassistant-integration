@@ -14,9 +14,10 @@ OAUTH_CLIENT_ID = "ai-appliances-home-assistant"
 OAUTH_AUTHORIZE_URL = "https://app.ai-appliance.store/oauth/authorize"
 OAUTH_TOKEN_URL = "https://app.ai-appliance.store/api/oauth/token"
 
-# The production voice-backend channel; the options let a self-hosted
-# backend replace it.
-DEFAULT_BACKEND_URL = "wss://gpu-box.tail8ab92a.ts.net/voice/ha-channel"
+# The channel on our own domain: the frontend's nginx proxies it to wherever
+# voice-backend runs, so installed integrations never learn (or depend on)
+# that address. The options let a self-hosted backend replace it.
+DEFAULT_BACKEND_URL = "wss://app.ai-appliance.store/ha-channel"
 
 # v1 scope (ADR-0006): what the speaker may switch, and what it may only read.
 CONTROL_DOMAINS = {"light", "switch", "fan"}
